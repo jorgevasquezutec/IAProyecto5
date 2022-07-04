@@ -1,5 +1,6 @@
 import torch
 import torch.nn.functional as F
+from zmq import device
 
 class Model():
   def __init__(self, model):
@@ -11,6 +12,12 @@ class Model():
     mean_acc = torch.stack(batch_acc).mean()
     return {"error": mean_error_batch.item(),"acc": mean_acc.item()}
 
+  def predict(self,img,classes,device,to_device):
+    x = to_device(img.unsqueeze(0),device)
+    output = self.model(x)
+    _,pred = torch.max(output,dim=1)
+    return classes[pred[0].item()]
+   
   @torch.no_grad()
   def evaluate(self,val_loader,output=False):
     self.model.eval()
