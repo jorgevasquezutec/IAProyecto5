@@ -63,4 +63,40 @@ class Model():
       log.append(result)
     return log
 
+  def get_lr(self,optimizer):
+    for param_group in optimizer.param_groups:
+        return param_group['lr']
 
+  def trainCicle(self,epochs, max_lr, train_loader, val_loader, 
+                  weight_decay=0, grad_clip=None, opt_func=torch.optim.SGD,loss_fn=torch.nn.CrossEntropyLoss):
+
+    torch.cuda.empty_cache()
+    log = []
+    optimizer = opt_func(self.model.parameters(), max_lr, weight_decay=weight_decay)
+    sched = torch.optim.lr_scheduler.OneCycleLR(optimizer, max_lr, epochs=epochs, 
+                                                steps_per_epoch=len(train_loader))
+
+    for epoch in range(epochs):
+      self.model.train()
+      train_losses = []
+      lrs = []
+      for batch in train_loader:
+          images,labels = batch
+          output = self.model(images)
+          loss = loss_fn(output,labels)
+          train_losses.append(loss)
+          loss.backward()
+          if grad_clip: 
+              torch.nn.utils.clip_grad_value_(self.model.parameters(), grad_clip)
+
+          optimizer.step()
+          optimizer.zero_grad()
+          
+          lrs.append(self.get_lr(optimizer))
+          sched.step()
+      result = self.evaluate(val_loader)
+      result['loss_train'] = torch.stack(train_losses).mean().item()
+      result['lrs'] = lrs
+      print('Epoch [{}/{}],Loss Train {:.4f},val_loss:{:.4f},Accuracy {:.4f},lr{:.4f}'.format(epoch+1, epochs,result['loss_train'],result['error'],result['acc'],result['lrs'][-1]))
+      log.append(result)
+    return log

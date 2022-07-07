@@ -1,3 +1,7 @@
 data/
 archive2.zip
 __pycache__/
+Image/
+otherdataset/
+test.py
+Image.zip
